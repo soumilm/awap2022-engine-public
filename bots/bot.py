@@ -38,15 +38,15 @@ def compute_distances_from_cell(map, row, col):
     visited = set()
     while len(heap) > 0:
         (cost, (r,c)) = heapq.heappop(heap)
-        if ((r,c) in visited): pass
+        if ((r,c) in visited): continue
+
         visited.add((r,c))
         set_value(r,c, cost)
 
         for new_r, new_c in [(r-1, c), (r+1, c), (r, c-1), (r, c+1)]:
-            if ((new_r, new_c) not in visited):
-                new_cost = cost + get_passability(new_r, new_c)
+            if ((new_r, new_c) not in visited and in_bounds(new_r, new_c)):
+                new_cost = cost + get_passability(r,c)
                 heapq.heappush(heap, (new_cost, (new_r, new_c)))
-                print(new_r, new_c)
 
     return D
 
