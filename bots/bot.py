@@ -50,28 +50,11 @@ def compute_distances_from_cell(map, row, col):
 
     return D
 
-#    def compute_dist(r,c):
-#        if (r >= 0 and r < len(D)):
-#            if (c >= 0 and c < len(D[0])):
-#                if get(r,c) != float('inf'): return
-#                compute_dist(r, c-1)
-#                compute_dist(r, c+1)
-#                compute_dist(r-1, c)
-#                compute_dist(r+1, c)
-#                val = min([
-#                    get(r, c-1) + get_passability(r, c-1),
-#                    get(r, c+1) + get_passability(r, c+1),
-#                    get(r-1, c) + get_passability(r-1, c),
-#                    get(r+1, c) + get_passability(r+1, c)
-#                ])
-#                set(r,c, val)
-#
-#    compute_dist()
-
 class Cell():
-    def __init__(self, r, c, passability, utility):
+    def __init__(self, r, c, dist, passability, utility):
         self.r = r
         self.c = c
+        self.dist = dist
         self.passability = passability
         self.utility = utility
 
@@ -102,8 +85,14 @@ class MyPlayer(Player):
                         self.generators.add((r,c))
 
         gen_r, gen_c = list(self.generators)[0]
-        D = compute_distances_from_cell(map, gen_r, gen_c)
-        print(D)
+        mins = compute_distances_from_cell(map, gen_r, gen_c)
+        for gen_r, gen_c in self.generators:
+            D = compute_distances_from_cell(map, gen_r, gen_c)
+            mins = [[min(mins[r][c], D[r][c]) for c in range(len(D[0]))] for r in range(len(D))]
+
+        for r in range(len(D)):
+            for c in range(len(D[0])):
+                print(r,c, D[r][c])
 
 
     def play_turn(self, turn_num, map, player_info):
