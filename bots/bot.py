@@ -7,20 +7,66 @@ from src.player import *
 from src.structure import *
 from src.game_constants import GameConstants as GC
 
-def compute_distances_from_cell(map,r,c):
+def compute_distances_from_cell(map, row, col):
     D = [[float('inf') for i in range(len(map[0]))] for j in range(len(map))]
 
-    def set(r,c, val):
+    def set_value(r,c, val):
         if (r >= 0 and r < len(D)):
             if (c >= 0 and c < len(D[0])):
                 D[r][c] = val
-    set(r, c, 0)
-    set(r-1, c, 0)
-    set(r+1, c, 0)
-    set(r, c-1, 0)
-    set(r, c+1, 0)
-    def compute_dist(r,c):
-        return
+    def get(r,c):
+        if (r >= 0 and r < len(D)):
+            if (c >= 0 and c < len(D[0])):
+                return D[r][c]
+        return float('inf')
+    def get_passability(r,c):
+        if r == row and c == col: return 0
+
+        if (r >= 0 and r < len(D)):
+            if (c >= 0 and c < len(D[0])):
+                return map[r][c].passability
+        return float('inf')
+
+    def in_bounds(r,c):
+        if (r >= 0 and r < len(D)):
+            return (c >= 0 and c < len(D[0]))
+        return False
+
+    set_value(row, col, 0)
+
+    heap = [(0, (row, col))]
+    visited = set()
+    while len(heap) > 0:
+        (cost, (r,c)) = heapq.heappop(heap)
+        if ((r,c) in visited): pass
+        visited.add((r,c))
+        set_value(r,c, cost)
+
+        for new_r, new_c in [(r-1, c), (r+1, c), (r, c-1), (r, c+1)]:
+            if ((new_r, new_c) not in visited):
+                new_cost = cost + get_passability(new_r, new_c)
+                heapq.heappush(heap, (new_cost, (new_r, new_c)))
+                print(new_r, new_c)
+
+    return D
+
+#    def compute_dist(r,c):
+#        if (r >= 0 and r < len(D)):
+#            if (c >= 0 and c < len(D[0])):
+#                if get(r,c) != float('inf'): return
+#                compute_dist(r, c-1)
+#                compute_dist(r, c+1)
+#                compute_dist(r-1, c)
+#                compute_dist(r+1, c)
+#                val = min([
+#                    get(r, c-1) + get_passability(r, c-1),
+#                    get(r, c+1) + get_passability(r, c+1),
+#                    get(r-1, c) + get_passability(r-1, c),
+#                    get(r+1, c) + get_passability(r+1, c)
+#                ])
+#                set(r,c, val)
+#
+#    compute_dist()
 
 class Cell():
     def __init__(self, r, c, passability, utility):
@@ -36,7 +82,6 @@ class Cell():
 
 class MyPlayer(Player):
     def __init__(self):
-        print("Init")
         self.turn = 0
 
         self.roads = set()
@@ -56,13 +101,13 @@ class MyPlayer(Player):
                     if (team == player_info.team and tile_type == StructureType.GENERATOR):
                         self.generators.add((r,c))
 
-        for r in range(self.HEIGHT):
-            for c in range(self.WIDTH):
-
+        gen_r, gen_c = list(self.generators)[0]
+        D = compute_distances_from_cell(map, gen_r, gen_c)
+        print(D)
 
 
     def play_turn(self, turn_num, map, player_info):
         if turn_num == 0:
-            real_init(map, player_info)
+            self.real_init(map, player_info)
 
         return
