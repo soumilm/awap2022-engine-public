@@ -1,3 +1,4 @@
+## V60
 import sys
 from math import *
 
@@ -69,6 +70,11 @@ def reachable_utility(map, r, c):
                 cities.add((new_r, new_c))
     return (total, cities)
 
+def can_visit(map, team, r, c):
+    if map[r][c].structure is None:
+        return True
+    return map[r][c].structure.team == team
+
 class Cell():
     def __init__(self, r, c, dist, passability, utility, cities_covered):
         self.r = r
@@ -139,12 +145,12 @@ class MyPlayer(Player):
             (cost, r, c, path) = heapq.heappop(frontier)
             frontier_set.remove((r,c))
             if (r,c) in self.structures:
-                print("Found:", r, c)
                 return (cost, r,c, path)
             visited.add((r,c))
             neighbors = get_neighbors(map, r, c)
             for (new_r, new_c) in neighbors:
-                if (new_r, new_c) not in (visited | frontier_set):
+                can_visit_cell = can_visit(map, player_info.team, new_r, new_c)
+                if (new_r, new_c) not in (visited | frontier_set) and can_visit_cell:
                     frontier_set.add((new_r, new_c))
                     passability = map[r][c].passability
                     bigass_tuple = (cost + passability, new_r, new_c, path + [(new_r, new_c)])
@@ -154,16 +160,21 @@ class MyPlayer(Player):
         if turn_num == 0:
             self.real_init(map, player_info)
 
-        print("Focus:",self.focus)
+        if self.focus is not None:
+            self.set_bid(player_info.money % 10)
+
+        path_tuple = 3
+
         while self.focus is None and len(self.heap) > 0:
             new_focus = heapq.heappop(self.heap)[1]
             if len(new_focus.cities_covered - self.cities_covered) > 0:
-                self.focus = new_focus
+                path_tuple = self.get_path(map, player_info, new_focus)
+                if path_tuple is not None:
+                    self.focus = new_focus
 
         if self.focus is None: return
 
         path_tuple = self.get_path(map, player_info, self.focus)
-        print("Shortest Path: ", path_tuple)
         shortest_path = path_tuple[-1][::-1]
         length = len(shortest_path)
 
