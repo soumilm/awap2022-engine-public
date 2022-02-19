@@ -56,22 +56,27 @@ def compute_distances_from_cell(map, row, col):
     return D
 
 def reachable_utility(map, r, c):
-    offsets = [(i,j) for i in range(-2, 3) for j in range(-2, 3) if abs(i+j) <= 2]
+    offsets = [(i,j) for i in range(-2, 3) for j in range(-2, 3) if abs(i)+abs(j) <= 2]
     total = 0
+    cities = set()
     for i,j in offsets:
         new_r = r + i;
         new_c = c + j
         if (in_bounds(map, new_r, new_c)):
-            total += map[new_r][new_c].population
-    return total
+            population = map[new_r][new_c].population
+            total += population
+            if population > 0:
+                cities.add((new_r, new_c))
+    return (total, cities)
 
 class Cell():
-    def __init__(self, r, c, dist, passability, utility):
+    def __init__(self, r, c, dist, passability, utility, cities_covered):
         self.r = r
         self.c = c
         self.dist = dist
         self.passability = passability
         self.utility = utility
+        self.cities_covered = cities_covered
 
     def __hash__(self):
         return hash((r,c))
@@ -95,6 +100,8 @@ class MyPlayer(Player):
 
         self.generators = set()
         self.structures = set()
+
+        self.cities_covered = set()
         self.focus = None
         self.heap = []
 
@@ -109,8 +116,8 @@ class MyPlayer(Player):
                     team = tile.structure.team
                     tile_type = tile.structure.type
                     if (team == player_info.team and tile_type == StructureType.GENERATOR):
-                        self.generators.add((r, self.WIDTH - 1 - c))
-                        self.structures.add((r, self.WIDTH - 1 - c))
+                        self.generators.add((r, c))
+                        self.structures.add((r, c))
 
         gen_r, gen_c = list(self.generators)[0]
         mins = compute_distances_from_cell(map, gen_r, gen_c)
@@ -120,7 +127,8 @@ class MyPlayer(Player):
 
         for r in range(self.HEIGHT):
             for c in range(self.WIDTH):
-                cell = Cell(r,c, mins[r][c][0], map[r][c].passability, reachable_utility(map, r, c))
+                utility, cities_covered = reachable_utility(map, r, c)
+                cell = Cell(r,c, mins[r][c][0], map[r][c].passability, utility, cities_covered)
                 heapq.heappush(self.heap, cell.output_tuple())
 
     def get_path(self, map, player_info, src):
@@ -131,7 +139,7 @@ class MyPlayer(Player):
             (cost, r, c, path) = heapq.heappop(frontier)
             frontier_set.remove((r,c))
             if (r,c) in self.structures:
-                print("Found: ", r, c)
+                print("Found:", r, c)
                 return (cost, r,c, path)
             visited.add((r,c))
             neighbors = get_neighbors(map, r, c)
@@ -146,21 +154,37 @@ class MyPlayer(Player):
         if turn_num == 0:
             self.real_init(map, player_info)
 
-        if self.focus is None:
-            self.focus = heapq.heappop(self.heap)[1]
-            # TODO: Check whether this would actually cover new populations
+        print("Focus:",self.focus)
+        while self.focus is None and len(self.heap) > 0:
+            new_focus = heapq.heappop(self.heap)[1]
+            if len(new_focus.cities_covered - self.cities_covered) > 0:
+                self.focus = new_focus
+
+        if self.focus is None: return
 
         path_tuple = self.get_path(map, player_info, self.focus)
+        print("Shortest Path: ", path_tuple)
         shortest_path = path_tuple[-1][::-1]
-        print("Path Tuple: ", path_tuple)
-        print("Focus: ", self.focus)
+        length = len(shortest_path)
 
-        print("Before:", self.structures)
-        for i in range(len(shortest_path)):
+        actual_money = player_info.money
+        for i in range(length):
             r,c = shortest_path[i]
             cell = map[r][c]
-            if 10 * cell.passability < player_info.money:
-                self.build(StructureType.ROAD, c, self.HEIGHT - 1 - r)
-                self.structures.add((r,c))
+            if i == length - 1:
+                cost = 250 * cell.passability
+                struct = StructureType.TOWER
+            else:
+                cost = 10 * cell.passability
+                struct = StructureType.ROAD
 
-        print("After:", self.structures)
+            if cost < actual_money:
+                self.build(struct, r,c)
+                self.structures.add((r,c))
+                actual_money -= cost
+                if struct == StructureType.TOWER:
+                    self.cities_covered |= self.focus.cities_covered
+                    self.focus = None
+            else:
+                break
+
