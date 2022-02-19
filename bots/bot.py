@@ -78,6 +78,9 @@ class Cell():
     def __lt__(self, other):
         return self.priority() < other.priority()
 
+    def __str__(self):
+        return f"({self.r}, {self.c})"
+
     def priority(self):
         if self.utility == 0: return float('inf')
         else:
@@ -90,7 +93,7 @@ class MyPlayer(Player):
     def __init__(self):
         self.turn = 0
 
-        self.roads = set()
+        self.generators = set()
         self.structures = set()
         self.focus = None
         self.heap = []
@@ -106,7 +109,8 @@ class MyPlayer(Player):
                     team = tile.structure.team
                     tile_type = tile.structure.type
                     if (team == player_info.team and tile_type == StructureType.GENERATOR):
-                        self.generators.add((r,c))
+                        self.generators.add((r, self.WIDTH - 1 - c))
+                        self.structures.add((r, self.WIDTH - 1 - c))
 
         gen_r, gen_c = list(self.generators)[0]
         mins = compute_distances_from_cell(map, gen_r, gen_c)
@@ -118,7 +122,6 @@ class MyPlayer(Player):
             for c in range(self.WIDTH):
                 cell = Cell(r,c, mins[r][c][0], map[r][c].passability, reachable_utility(map, r, c))
                 heapq.heappush(self.heap, cell.output_tuple())
-        print(self.heap)
 
     def get_path(self, map, player_info, src):
         frontier_set = set([(src.r, src.c)])
@@ -128,6 +131,7 @@ class MyPlayer(Player):
             (cost, r, c, path) = heapq.heappop(frontier)
             frontier_set.remove((r,c))
             if (r,c) in self.structures:
+                print("Found: ", r, c)
                 return (cost, r,c, path)
             visited.add((r,c))
             neighbors = get_neighbors(map, r, c)
@@ -146,10 +150,17 @@ class MyPlayer(Player):
             self.focus = heapq.heappop(self.heap)[1]
             # TODO: Check whether this would actually cover new populations
 
-        shortest_path = self.get_path(map, player_info, self.focus)[::-1]
+        path_tuple = self.get_path(map, player_info, self.focus)
+        shortest_path = path_tuple[-1][::-1]
+        print("Path Tuple: ", path_tuple)
+        print("Focus: ", self.focus)
 
+        print("Before:", self.structures)
         for i in range(len(shortest_path)):
-            cell = shortest_path[i]
+            r,c = shortest_path[i]
+            cell = map[r][c]
             if 10 * cell.passability < player_info.money:
-                self.build(StructureType.ROAD, cell.c, self.HEIGHT - 1 - cell.r)
-                self.structures(cell.c, cell.r)
+                self.build(StructureType.ROAD, c, self.HEIGHT - 1 - r)
+                self.structures.add((r,c))
+
+        print("After:", self.structures)
